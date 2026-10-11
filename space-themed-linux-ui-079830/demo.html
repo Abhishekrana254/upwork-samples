@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sample - Space Themed Linux UI</title>
+<style>
+  body { margin: 0; font: 15px/1.45 ui-sans-serif, system-ui, sans-serif; background: #efeae2; color: #1c1915; }
+  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; display: flex; justify-content: space-between; gap: 12px; }
+  header small { display: block; opacity: .7; margin-top: 4px; }
+  .shell { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 64px); }
+  aside { background: #fff; border-right: 1px solid #e4dccf; padding: 16px; }
+  aside p { margin: 0 0 8px; color: #6b6258; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  main { padding: 20px; }
+  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 14px; padding: 16px; }
+  .step { display: block; width: 100%; text-align: left; background: #faf7f2; border: 1px solid #e4dccf; border-radius: 10px; padding: 12px 14px; margin: 0 0 8px; cursor: pointer; }
+  .step b { display: block; }
+  .step.on { border-color: #1c1915; background: #fff; }
+  #out { margin-top: 14px; background: #1c1915; color: #f6f3ee; border-radius: 12px; padding: 14px 16px; min-height: 72px; }
+  #out strong { display: block; margin-bottom: 6px; color: #e7d7b8; }
+</style>
+</head>
+<body>
+<header>
+  <div><strong>Space Themed Linux UI</strong><small>Sample screen for the proposal. Not the finished product.</small></div>
+  <div>Week-one slice</div>
+</header>
+<div class="shell">
+  <aside>
+    <p>Sample</p>
+    <div>Open this file, screenshot the screen, attach it with architecture.md.</div>
+  </aside>
+  <main>
+    <div class="card">
+      <button class="step" data-step="1"><b>Step 1</b><span>Space Themed Linux UI</span></button>
+<button class="step" data-step="2"><b>Step 2</b><span>Python desktop TUI for a space-themed Linux environment, standard library only, no pip</span></button>
+<button class="step" data-step="3"><b>Step 3</b><span>Three modules: a video fetcher, a system-monitor overlay, and browser improvements</span></button>
+      <div id="out"><strong>Sample result</strong>Pick a step.</div>
+    </div>
+  </main>
+</div>
+<script>
+const steps = ["Space Themed Linux UI", "Python desktop TUI for a space-themed Linux environment, standard library only, no pip", "Three modules: a video fetcher, a system-monitor overlay, and browser improvements"];
+const out = document.getElementById("out");
+document.querySelectorAll(".step").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".step").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    const n = Number(btn.dataset.step);
+    out.textContent = "Sample result, step " + n + ": " + steps[n - 1];
+  };
+});
+document.querySelector(".step").click();
+</script>
+</body>
+</html>
