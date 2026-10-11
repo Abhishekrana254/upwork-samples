@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Funnel architecture</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f6f4ef; color: #1c1915; }
+  main { max-width: 52rem; margin: 0 auto; padding: 1.6rem 1.2rem 3rem; }
+  h1 { font-size: 1.3rem; margin: 0 0 .4rem; }
+  p { color: #4a433a; }
+  .row { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; margin: 18px 0; }
+  .box { background: #fff; border: 1px solid #243024; border-radius: 12px; padding: 12px 12px; min-width: 6.5rem; text-align: center; flex: 1; }
+  .box b { display: block; font-size: 14px; }
+  .box span { display: block; color: #6b645b; font-size: 12px; margin-top: 4px; }
+  .gap { align-self: center; color: #6b645b; }
+  a { color: #1c1915; }
+</style>
+</head>
+<body>
+<main>
+  <h1>One ad, one enrollment</h1>
+  <p>Phase 1 is Bennett Bootcamps only. The enrollment has to name the ad that made the lead.</p>
+  <div class="row">
+    <div class="box"><b>Meta ad</b><span>campaign and ad id</span></div>
+    <div class="gap">→</div>
+    <div class="box"><b>Pixel / CAPI</b><span>one event id</span></div>
+    <div class="gap">→</div>
+    <div class="box"><b>Lead</b><span>same person</span></div>
+    <div class="gap">→</div>
+    <div class="box"><b>GoHighLevel</b><span>matched contact</span></div>
+  </div>
+  <div class="row">
+    <div class="box"><b>Appointment</b><span>Platinum consult</span></div>
+    <div class="gap">→</div>
+    <div class="box"><b>$5,000 enrollment</b><span>still that ad id</span></div>
+    <div class="gap">→</div>
+    <div class="box"><b>Recommendation</b><span>a person approves it</span></div>
+  </div>
+  <p>A cheaper lead with no enrollment does not win. No live budget change happens on this slice.</p>
+  <p><a href="index.html">Open the table</a></p>
+</main>
+</body>
+</html>

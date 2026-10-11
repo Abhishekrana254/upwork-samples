@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Estimate architecture</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
+  main { max-width: 44rem; margin: 0 auto; padding: 1.6rem 1.2rem 3rem; }
+  h1 { font-size: 1.3rem; margin: 0 0 .4rem; }
+  p { color: #4a433a; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 18px 0; }
+  .box { background: #fff; border: 1px solid #1c1915; border-radius: 12px; padding: 12px 14px; min-width: 9rem; text-align: center; }
+  .box b { display: block; }
+  .box span { display: block; color: #6b645b; font-size: 13px; margin-top: 4px; }
+  .arrow { text-align: center; color: #6b645b; letter-spacing: .2em; }
+  a { color: #1c1915; }
+</style>
+</head>
+<body>
+<main>
+  <h1>One table, two apps</h1>
+  <p>ChatGPT and Claude do not each keep a copy of the numbers. Both read and write the same estimate.</p>
+  <div class="row">
+    <div class="box"><b>ChatGPT</b><span>reads and writes</span></div>
+    <div class="box"><b>Claude</b><span>reads and writes</span></div>
+  </div>
+  <div class="arrow">↓ same save key ↓</div>
+  <div class="row">
+    <div class="box"><b>Estimate table</b><span>labor, materials, markup, total</span></div>
+  </div>
+  <div class="arrow">↓ after present ↓</div>
+  <div class="row">
+    <div class="box"><b>Lock</b><span>a change is a new revision</span></div>
+  </div>
+  <p>A second save does not create a second estimate. If the two apps disagree on the total, this slice is not done.</p>
+  <p><a href="index.html">Open the estimate</a></p>
+</main>
+</body>
+</html>
