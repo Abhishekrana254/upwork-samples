@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clock</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f7f4ef; color: #1c1915; }
+  header { padding: 16px 20px; }
+  header small { display: block; color: #6b645b; }
+  main { display: grid; grid-template-columns: .8fr 1.2fr; gap: 14px; padding: 0 16px 20px; }
+  .card { background: #fff; border: 1px solid #e6dfd4; border-radius: 14px; padding: 16px; }
+  button { font: inherit; background: #1c1915; color: #fff; border: 0; border-radius: 10px; padding: 12px 16px; }
+  .ghost { background: #fff; color: #1c1915; border: 1px solid #d9d1c3; margin-left: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 8px 0; border-bottom: 1px solid #efe8dc; }
+  h2 { margin: 0 0 10px; font-size: 14px; color: #6b645b; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <strong>Today</strong>
+  <small>Clock in and clock out. Challenges and the AI summary are not on this screen.</small>
+</header>
+<main>
+  <section class="card">
+    <h2>Status · out</h2>
+    <p>Last punch 18:04</p>
+    <button>Clock in</button><button class="ghost">Clock out</button>
+  </section>
+  <section class="card">
+    <h2>Punch history</h2>
+    <table>
+      <tr><td>Mon 09:02</td><td>In</td></tr>
+      <tr><td>Mon 18:04</td><td>Out</td></tr>
+      <tr><td>Tue 09:11</td><td>In</td></tr>
+    </table>
+    <p><a href="first-slice.html">Why the clock is first</a></p>
+  </section>
+</main>
+</body>
+</html>
