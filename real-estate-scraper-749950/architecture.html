@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scraper path</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
+  main { max-width: 44rem; margin: 0 auto; padding: 1.6rem 1.2rem 3rem; }
+  h1 { font-size: 1.3rem; margin: 0 0 .4rem; }
+  p { color: #4a433a; }
+  .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 18px 0; }
+  .box { background: #fff; border: 1px solid #1c1915; border-radius: 12px; padding: 12px 14px; min-width: 8.5rem; text-align: center; }
+  .box b { display: block; }
+  .box span { display: block; color: #6b645b; font-size: 13px; margin-top: 4px; }
+  .stop { border-color: #8a2b1a; }
+  .arrow { text-align: center; color: #6b645b; letter-spacing: .2em; }
+  a { color: #1c1915; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Config in, one row out</h1>
+  <p>County names live in the config file. The script does not contain them.</p>
+  <div class="row">
+    <div class="box"><b>config.json</b><span>one county</span></div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <div class="box"><b>Obituary text</b><span>one record</span></div>
+    <div class="box"><b>Model</b><span>name and heirs</span></div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <div class="box"><b>GSCCCA text</b><span>index only</span></div>
+    <div class="box stop"><b>Deed image</b><span>never clicked</span></div>
+  </div>
+  <div class="arrow">↓</div>
+  <div class="row">
+    <div class="box"><b>Docket</b><span>or a courthouse list</span></div>
+    <div class="box"><b>CSV</b><span>one row</span></div>
+  </div>
+  <p>The 60-month scan is the same path, repeated. It waits until this row is right.</p>
+  <p><a href="index.html">Open the row</a></p>
+</main>
+</body>
+</html>
