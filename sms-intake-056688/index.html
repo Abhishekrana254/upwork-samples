@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>One referral text</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
+  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; display: flex; justify-content: space-between; gap: 12px; }
+  header small { display: block; color: #cfc6b8; margin-top: 4px; }
+  main { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; padding: 16px; }
+  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 12px; padding: 14px 16px; }
+  h2 { margin: 0 0 8px; font-size: 15px; }
+  .msg { background: #efeae2; border-radius: 12px; padding: 8px 10px; margin: 8px 0; }
+  .agent { background: #fff; border: 1px solid #1c1915; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 6px 0; border-bottom: 1px solid #efeae2; vertical-align: top; }
+  td:first-child { color: #6b645b; width: 46%; }
+  .stop { color: #8a2b1a; }
+  a { color: #1c1915; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div><strong>One referral</strong><small>The agent collects. A person still takes the job.</small></div>
+  <div>First slice</div>
+</header>
+<main>
+  <section class="card">
+    <h2>Thread</h2>
+    <div class="msg">Partner: Leak under the sink, 14 Oak St. Photo attached.</div>
+    <div class="msg agent">Agent: Got the address and the leak. Homeowner number still missing.</div>
+    <div class="msg">Partner: 415-555-0142</div>
+    <div class="msg agent">Agent: Saved. A person on the team accepts the job. I do not price it.</div>
+  </section>
+  <section class="card">
+    <h2>Stored</h2>
+    <table>
+      <tr><td>Address</td><td>14 Oak St</td></tr>
+      <tr><td>What happened</td><td>Leak under the sink</td></tr>
+      <tr><td>Photo</td><td>On the record</td></tr>
+      <tr><td>Homeowner</td><td>415-555-0142</td></tr>
+      <tr><td>Price</td><td class="stop">Not set by the agent</td></tr>
+      <tr><td>Calendar</td><td>Only after a person says they are on the way</td></tr>
+    </table>
+    <p><a href="on-the-way.html">The calendar event</a><br><a href="architecture.html">Both paths</a></p>
+  </section>
+</main>
+</body>
+</html>
