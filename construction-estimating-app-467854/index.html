@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>One estimate, two apps</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
+  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; display: flex; justify-content: space-between; gap: 12px; }
+  header small { display: block; color: #cfc6b8; margin-top: 4px; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px; }
+  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 12px; padding: 14px 16px; }
+  h2 { margin: 0 0 4px; font-size: 15px; }
+  .lock { display: inline-block; margin-top: 8px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #6b5b3e; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  td { padding: 6px 0; border-bottom: 1px solid #efeae2; }
+  td:last-child { text-align: right; }
+  .total td { font-weight: 700; border-bottom: 0; }
+  .note { grid-column: 1 / -1; }
+  a { color: #1c1915; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } .note { grid-column: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <div><strong>ADU addition, lot 14</strong><small>One estimate. ChatGPT and Claude read the same record.</small></div>
+  <div>Presented</div>
+</header>
+<main>
+  <section class="card">
+    <h2>ChatGPT</h2>
+    <span class="lock">Locked after present</span>
+    <table>
+      <tr><td>Labor</td><td>$9,200</td></tr>
+      <tr><td>Materials</td><td>$6,100</td></tr>
+      <tr><td>Markup</td><td>$3,120</td></tr>
+      <tr class="total"><td>Total</td><td>$18,420</td></tr>
+    </table>
+  </section>
+  <section class="card">
+    <h2>Claude</h2>
+    <span class="lock">Locked after present</span>
+    <table>
+      <tr><td>Labor</td><td>$9,200</td></tr>
+      <tr><td>Materials</td><td>$6,100</td></tr>
+      <tr><td>Markup</td><td>$3,120</td></tr>
+      <tr class="total"><td>Total</td><td>$18,420</td></tr>
+    </table>
+  </section>
+  <section class="card note">
+    <p>Both totals come from one table. A second save does not open a second estimate. A presented estimate does not change unless you start a revision.</p>
+    <p><a href="same-total.html">Why the total has to match</a></p>
+  </section>
+</main>
+</body>
+</html>
