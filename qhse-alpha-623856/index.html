@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>One incident, one company</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
+  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; display: flex; justify-content: space-between; gap: 12px; }
+  header small { display: block; color: #cfc6b8; margin-top: 4px; }
+  main { display: grid; grid-template-columns: 1.2fr .8fr; gap: 14px; padding: 16px; }
+  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 12px; padding: 14px 16px; }
+  h2 { margin: 0 0 8px; font-size: 15px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 6px 0; border-bottom: 1px solid #efeae2; vertical-align: top; }
+  td:first-child { color: #6b645b; width: 42%; }
+  .later { color: #6b645b; }
+  a { color: #1c1915; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <div><strong>North yard</strong><small>One company. One incident that is stored, not a slide.</small></div>
+  <div>Alpha</div>
+</header>
+<main>
+  <section class="card">
+    <h2>INC-14 · Wet deck</h2>
+    <table>
+      <tr><td>Company</td><td>North yard</td></tr>
+      <tr><td>Reported</td><td>Today, 07:40, by the shift lead</td></tr>
+      <tr><td>Investigation</td><td>Open. Same person owns it.</td></tr>
+      <tr><td>Corrective action</td><td>Replace the grating. Due Friday.</td></tr>
+      <tr><td>Where it lives</td><td>Postgres row INC-14</td></tr>
+    </table>
+  </section>
+  <section class="card">
+    <h2>Not in this slice</h2>
+    <table>
+      <tr><td>Inspections</td><td class="later">Under development</td></tr>
+      <tr><td>Audits</td><td class="later">Under development</td></tr>
+      <tr><td>Training</td><td class="later">Under development</td></tr>
+      <tr><td>Other companies</td><td class="later">Under development</td></tr>
+    </table>
+    <p><a href="in-the-table.html">The same row in the table</a><br><a href="architecture.html">How the record moves</a></p>
+  </section>
+</main>
+</body>
+</html>
