@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Expert, Operations Automation</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;line-height:1.25;margin-bottom:8px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+</style>
+</head>
+<body>
+<h1>Claude Expert, Operations Automation</h1>
+<p class="sub">A sketch of how the build would go. Abhishek Rana.</p>
+
+<h2>The problem</h2>
+<p>Daily operations still include repetitive manual work. The ask is a workflow that takes one of those items, uses the Claude API and a clear prompt, and returns a structured result that another system can accept over a webhook. API keys stay out of logs and out of the payload. Nothing here is running for this client yet. The first task still has to be named.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>An operations item arrives on an inbound webhook.</li>
+<li>The receiver checks a shared secret and keeps the raw text.</li>
+<li>Claude is called once and must return one structured action.</li>
+<li>If a required field is missing, the item waits for a person.</li>
+<li>Otherwise the action is posted to the downstream webhook.</li>
+<li>The log stores the action id and never the API key.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>webhook_in.py</code> accepts the item, checks the inbound secret, and writes the raw text.</li>
+<li><code>claude_action.py</code> calls the Claude Messages API and forces one tool so the shape stays fixed.</li>
+<li><code>schema.json</code> is the tool input: action, summary, fields, and needs_review.</li>
+<li><code>deliver.py</code> posts that object to the outbound webhook only when needs_review is false.</li>
+<li><code>.env.example</code> names ANTHROPIC_API_KEY, INBOUND_WEBHOOK_SECRET, and OUTBOUND_WEBHOOK_URL. No real values.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>One Python process owns the path. The inbound webhook is the only door in. Claude is the only step that reads the item text, and a forced tool call is what makes the output structured. Delivery is a separate function so a review hold can stop the outbound call without losing the raw item. Secrets come from the environment. This is the shape of the build, not a system that already exists.</p>
+
+<h2>Core step</h2>
+<pre>import json
+import os
+import urllib.request
+
+def structured_action(item_text: str) -> dict:
+    schema = json.load(open("schema.json"))
+    body = {
+        "model": "claude-sonnet-4-5",
+        "max_tokens": 800,
+        "system": (
+            "Turn one operations item into one action. "
+            "Use only facts present in the item. Call record_action once."
+        ),
+        "tools": [{
+            "name": "record_action",
+            "description": "Record the next operations action.",
+            "input_schema": schema,
+        }],
+        "tool_choice": {"type": "tool", "name": "record_action"},
+        "messages": [{"role": "user", "content": item_text}],
+    }
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=json.dumps(body).encode(),
+        headers={
+            "content-type": "application/json",
+            "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+            "anthropic-version": "2023-06-01",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        payload = json.loads(resp.read().decode())
+    block = next(b for b in payload["content"] if b["type"] == "tool_use")
+    return block["input"]</pre>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Which repetitive daily task should be the first one automated?</li>
+<li>Which system receives the structured action, and what JSON does its webhook expect?</li>
+<li>Which fields must be present before an action may run without a person?</li>
+</ol>
+</body>
+</html>
