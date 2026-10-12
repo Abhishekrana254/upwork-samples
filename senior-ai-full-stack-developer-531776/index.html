@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Senior AI Full Stack Developer</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.5}
+h1{font-size:28px;margin-bottom:4px}
+.sub{color:#555;margin-top:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.flow span{background:#f4f1ea;border:1px solid #ddd;padding:8px 10px}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Senior AI Full Stack Developer</h1>
+<p class="sub">Abhishek Rana. 8+ years in Python, including production work at Microsoft.</p>
+<p>The work is Senior AI Full Stack Developer. Retrieval runs before the model answers.</p>
+<div class="flow"><span>Senior AI Full Stack Developer</span><span>US client wants a full-time production app: Python, FastAPI, React, RAG, LangChain, and OpenAI</span><span>Two jobs are open and neither has hired anyone</span></div>
+<h2>Files</h2>
+<p><code>intake.py</code> reads the request and writes one row. <code>worker.py</code> is the only file that calls the model. <code>page.js</code> renders the result and never holds a secret.</p>
+<h2>Architecture</h2>
+<p>The row is the contract. The worker takes that row, runs the step, and writes the result back. A second business does not read the first business's row. The page only polls status.</p>
+<pre>def run_step(row):
+    text = str((row or {}).get("text") or "").strip()
+    if not text:
+        return {"ok": False, "error": "empty"}
+    return {"ok": True, "job": "Senior AI Full Stack Developer", "text": text, "state": "done"}</pre>
+<p>This page is the shape of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
