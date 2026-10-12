@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hybrid cloud controller</title>
+<style>
+  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
+  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; }
+  header small { display: block; color: #cfc6b8; margin-top: 4px; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px; }
+  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 12px; padding: 14px 16px; }
+  h2 { margin: 0 0 8px; font-size: 15px; }
+  ol { margin: 0; padding-left: 18px; }
+  li { margin: 6px 0; }
+  pre { background: #1c1915; color: #f6f3ee; border-radius: 10px; padding: 12px; overflow: auto; font-size: 13px; }
+  .wide { grid-column: 1 / -1; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } .wide { grid-column: auto; } }
+</style>
+</head>
+<body>
+<header>
+  <strong>Hybrid cloud controller</strong>
+  <small>Desired state in, a worker reconciles, the UI only shows what the cluster already did.</small>
+</header>
+<main>
+  <section class="card">
+    <h2>Flow</h2>
+    <ol>
+      <li>TypeScript page posts the desired service: image, replicas, region.</li>
+      <li>.NET API checks the body and writes one row. It does not talk to the cluster on the request thread.</li>
+      <li>A worker pod reads that row, applies it with the Kubernetes client, and writes the observed status back.</li>
+      <li>If the apply fails, the row stays dirty and the next pass retries. The API does not hide the failure.</li>
+      <li>CI builds the image, pushes it, and rolls the deployment. The page reads status. It does not SSH.</li>
+    </ol>
+  </section>
+  <section class="card">
+    <h2>What the page is</h2>
+    <p>A sample of the shape. Not a client system, and not a number from a past incident.</p>
+    <p>Docker for the API and the worker. Kubernetes for the reconcile loop. The front end only renders the status the worker stored.</p>
+  </section>
+  <section class="card wide">
+    <h2>Controller sample</h2>
+<pre>record Desired(string Name, string Image, int Replicas);
+
+app.MapPost("/services", (Desired body, Store store) =>
+{
+    if (string.IsNullOrWhiteSpace(body.Image) || body.Replicas &lt; 1)
+        return Results.BadRequest(new { error = "image and replicas are required" });
+    var id = store.Enqueue(body);
+    return Results.Accepted($"/services/{id}", new { id, status = "pending" });
+});
+
+// Worker, separate process. The request above already returned.
+async Task Reconcile(Store store, IKube kube, CancellationToken stop)
+{
+    var job = store.NextDirty();
+    if (job is null) return;
+    try
+    {
+        await kube.ApplyAsync(job.Desired, stop);
+        store.Mark(job.Id, "ready");
+    }
+    catch (Exception ex)
+    {
+        store.Mark(job.Id, "dirty", ex.Message);
+    }
+}</pre>
+  </section>
+</main>
+</body>
+</html>
