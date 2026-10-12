@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WhatsApp Cloud API, multi-tenant</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.5}
+h1{font-size:28px;margin-bottom:4px}
+.sub{color:#555;margin-top:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.flow span{background:#f4f1ea;border:1px solid #ddd;padding:8px 10px}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px}
+</style>
+</head>
+<body>
+<h1>WhatsApp Cloud API for a multi-tenant SaaS</h1>
+<p class="sub">Abhishek Rana. Messaging services in production, including platform work at Microsoft.</p>
+<p>Each organisation connects its own WhatsApp Business Account. The app stores that tenant's WABA id, phone number id, and token. A campaign sends only an approved template. The webhook writes delivered, read, or failed back onto the same message row.</p>
+<div class="flow">
+<span>1. Embedded Signup</span><span>2. Token stored per tenant</span><span>3. Template must be approved</span><span>4. Queue sends a batch</span><span>5. Webhook updates status</span>
+</div>
+<h2>Files</h2>
+<p><code>signup.js</code> finishes Embedded Signup and writes the three ids on that tenant only. <code>templates.js</code> reads Graph and stores approved, pending, or rejected. <code>queue.js</code> is the only file that calls send. <code>webhook.js</code> verifies the payload and updates the log. The Next.js page never holds the token.</p>
+<h2>Architecture</h2>
+<p>Next.js for the org admin. Node API for signup, templates, and the campaign row. MySQL tables are all keyed by tenant id: accounts, contacts, templates, campaigns, messages. A worker pulls a small batch, calls the Cloud API, and stores the returned message id. A rate-limit error goes back on the queue with a delay. STOP is checked before the send, so an opted-out number never enters the batch.</p>
+<pre>function enqueue(tenant, template, contacts) {
+  if (template.status !== "approved") return "template_not_approved";
+  const allowed = contacts.filter(c => !c.opted_out && c.tenant_id === tenant.id);
+  return db.insert("outbox", allowed.map(c => ({
+    tenant_id: tenant.id,
+    phone_number_id: tenant.phone_number_id,
+    to: c.phone,
+    template: template.name,
+    state: "queued"
+  })));
+}</pre>
+<p>The lookup key on the webhook is <code>phone_number_id</code>. That is how one business stays isolated from the next.</p>
+</body>
+</html>
