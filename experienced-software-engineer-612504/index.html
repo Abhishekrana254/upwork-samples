@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Experienced Software Engineer</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.5}
+h1{font-size:28px;margin-bottom:4px}
+.sub{color:#555;margin-top:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.flow span{background:#f4f1ea;border:1px solid #ddd;padding:8px 10px}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Experienced Software Engineer</h1>
+<p class="sub">Abhishek Rana. 8+ years in Python, including production work at Microsoft.</p>
+<p>The work is client projects that use an LLM, an agent, and retrieval. Retrieval runs before the model answers.</p>
+<div class="flow">
+<span>Files in</span>
+<span>Retrieve passages</span>
+<span>Model answers from those passages</span>
+<span>Agent calls a tool only after that</span>
+<span>JavaScript page shows the result</span>
+</div>
+<h2>Files</h2>
+<p><code>intake.py</code> writes one row per client request. <code>retrieve.py</code> picks the passages. <code>worker.py</code> is the only file that calls the model. <code>page.js</code> renders the answer and never holds a secret. A .NET service on the other side of the API stays behind that same row.</p>
+<h2>Architecture</h2>
+<p>The row is the contract. Retrieval reads the client's documents for that row only. The model does not answer from an empty context. A second client does not read the first client's row.</p>
+<pre>def answer(row, passages):
+    question = str((row or {}).get("question") or "").strip()
+    picked = [p for p in (passages or []) if p]
+    if not question or not picked:
+        return {"ok": False, "error": "need a question and a passage"}
+    return {"ok": True, "question": question, "passages": picked, "state": "ready"}</pre>
+<p>This page is the shape of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
