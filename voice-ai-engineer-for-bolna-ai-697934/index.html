@@ -1,51 +1,37 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Call drops at 12 seconds</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice agent turn loop</title>
 <style>
-  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #101418; color: #e8e4dc; }
-  header { padding: 18px 22px; display: flex; justify-content: space-between; gap: 16px; align-items: end; border-bottom: 1px solid #2a3038; }
-  header small { display: block; color: #9a9388; margin-top: 4px; }
-  .tag { background: #3a2218; color: #f0b089; border-radius: 999px; padding: 6px 10px; font-size: 13px; }
-  main { display: grid; grid-template-columns: 1.2fr .8fr; gap: 16px; padding: 18px; }
-  .card { background: #181d23; border: 1px solid #2a3038; border-radius: 14px; padding: 16px; }
-  h2 { margin: 0 0 12px; font-size: 15px; color: #c8c1b6; font-weight: 600; }
-  .row { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid #2a3038; }
-  .row b { color: #9a9388; font-weight: 600; }
-  .drop { background: #2a1814; margin: 0 -10px; padding: 10px; border-radius: 10px; }
-  .drop b, .drop span { color: #f0b089; }
-  ul { margin: 0; padding-left: 18px; }
-  li { margin: 0 0 10px; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.5}
+h1{font-size:28px;margin-bottom:4px}
+.sub{color:#555;margin-top:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.flow span{background:#f4f1ea;border:1px solid #ddd;padding:8px 10px}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px}
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <strong>One call, played back</strong>
-    <small>The line closes at 12 seconds. The caller did not hang up.</small>
-  </div>
-  <div class="tag">Dropped at 12.1s</div>
-</header>
-<main>
-  <section class="card">
-    <h2>What happened on the call</h2>
-    <div class="row"><b>0.0s</b><span>Phone provider connects the call.</span></div>
-    <div class="row"><b>1.2s</b><span>Agent starts the greeting.</span></div>
-    <div class="row"><b>8.4s</b><span>Caller is still talking. Agent has not finished its turn.</span></div>
-    <div class="row drop"><b>12.1s</b><span>Line closes. No hangup from the caller.</span></div>
-  </section>
-  <section class="card">
-    <h2>First check</h2>
-    <ul>
-      <li>Who closed it: the phone provider, or the agent app.</li>
-      <li>The last event before 12.1s, with the provider's reason code.</li>
-      <li>Whether a silence timer or a max-turn timer fired at 12 seconds.</li>
-    </ul>
-    <p>I would fix that one timer or that one hangup, then place the same call again. The greeting has to finish and the caller has to be able to answer.</p>
-  </section>
-</main>
+<h1>Voice agent turn loop</h1>
+<p class="sub">Abhishek Rana. Python services in production, including work at Microsoft.</p>
+<p>A caller speaks. Speech becomes text. The agent answers from the allowed tools only, then the reply is spoken back. If the caller talks over the reply, the current audio stops and the new turn starts.</p>
+<div class="flow">
+<span>1. Audio in</span><span>2. Transcript</span><span>3. Tool call</span><span>4. Spoken reply</span><span>5. Barge-in cuts audio</span>
+</div>
+<h2>Files</h2>
+<p><code>session.py</code> owns one call. <code>tools.py</code> is the only place a tool can run. The model does not get a free-form shell. Each turn stores the transcript, the tool name, and the audio id, so a bad call can be replayed.</p>
+<h2>Architecture</h2>
+<p>Telephony webhook to a session service. The session calls speech-to-text, then the model with a fixed tool list, then text-to-speech. Barge-in is a flag on the session: new speech sets it, and the player checks it before the next audio chunk.</p>
+<pre>def on_caller_speech(session, transcript):
+    session.barge_in = True
+    session.stop_audio()
+    tool, args = pick_tool(transcript, session.allowed_tools)
+    result = run_tool(tool, args)
+    reply = speak(result)
+    session.turns.append({"heard": transcript, "tool": tool, "audio": reply})
+    return reply</pre>
+<p>The allowed tool list is the boundary. A transcript that does not match a tool gets a short spoken fallback, not a guessed action.</p>
 </body>
 </html>

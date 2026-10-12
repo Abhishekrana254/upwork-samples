@@ -1,52 +1,40 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>One county, one row</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Listing scraper</title>
 <style>
-  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
-  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; display: flex; justify-content: space-between; gap: 12px; }
-  header small { display: block; color: #cfc6b8; margin-top: 4px; }
-  main { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; padding: 16px; }
-  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 12px; padding: 14px 16px; }
-  h2 { margin: 0 0 8px; font-size: 15px; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 6px 0; border-bottom: 1px solid #efeae2; vertical-align: top; }
-  td:first-child { color: #6b645b; width: 44%; }
-  .stop { color: #8a2b1a; }
-  a { color: #1c1915; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.5}
+h1{font-size:28px;margin-bottom:4px}
+.sub{color:#555;margin-top:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.flow span{background:#f4f1ea;border:1px solid #ddd;padding:8px 10px}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px}
 </style>
 </head>
 <body>
-<header>
-  <div><strong>Sample county</strong><small>Read from config.json. Not hardcoded.</small></div>
-  <div>First slice</div>
-</header>
-<main>
-  <section class="card">
-    <h2>One estate</h2>
-    <table>
-      <tr><td>County</td><td>Sample county</td></tr>
-      <tr><td>Deceased</td><td>Alex Sample</td></tr>
-      <tr><td>Heir</td><td>Jordan Sample, Atlanta</td></tr>
-      <tr><td>Deed check</td><td>Text index only</td></tr>
-      <tr><td>Survivorship</td><td>Not joint tenants</td></tr>
-      <tr><td>Probate</td><td>No case on the docket</td></tr>
-      <tr><td>Output</td><td>One CSV row</td></tr>
-    </table>
-  </section>
-  <section class="card">
-    <h2>Not in this slice</h2>
-    <table>
-      <tr><td>60-month backlog</td><td>Later</td></tr>
-      <tr><td>Other counties</td><td>Later</td></tr>
-      <tr><td>Deed images</td><td class="stop">Never clicked</td></tr>
-      <tr><td>Manual courthouse list</td><td>Only if the config says manual</td></tr>
-    </table>
-    <p><a href="one-row.html">The CSV row</a><br><a href="architecture.html">How the row is built</a></p>
-  </section>
-</main>
+<h1>Listing scraper</h1>
+<p class="sub">Abhishek Rana. Python data jobs in production, including work at Microsoft.</p>
+<p>A listing page is fetched, parsed into fields, and written once per listing id. The next run updates price and status on that same id. It does not insert a second row because the photo order changed.</p>
+<div class="flow">
+<span>1. Fetch</span><span>2. Parse fields</span><span>3. Key on listing id</span><span>4. Upsert</span><span>5. Failures logged, run continues</span>
+</div>
+<h2>Files</h2>
+<p><code>fetch.py</code> gets the page. <code>parse.py</code> returns address, price, beds, and status, or an error. <code>store.py</code> upserts on listing id. A parse error is a row in the failure log, not a crash of the batch.</p>
+<h2>Architecture</h2>
+<p>One worker, one site adapter. The adapter is the only file that knows the page shape. Storage and the schedule do not. A second site is a second adapter with the same return shape.</p>
+<pre>def upsert(conn, listing):
+    conn.execute(
+        """
+        INSERT INTO listings (id, address, price, beds, status)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          price=excluded.price,
+          status=excluded.status
+        """,
+        (listing["id"], listing["address"], listing["price"], listing["beds"], listing["status"]),
+    )</pre>
+<p>The conflict key is the listing id from the source, not the row number from this run.</p>
 </body>
 </html>

@@ -1,51 +1,41 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>One referral text</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMS intake</title>
 <style>
-  body { margin: 0; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; background: #f3f1ec; color: #1c1915; }
-  header { padding: 16px 20px; background: #1c1915; color: #f6f3ee; display: flex; justify-content: space-between; gap: 12px; }
-  header small { display: block; color: #cfc6b8; margin-top: 4px; }
-  main { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; padding: 16px; }
-  .card { background: #fff; border: 1px solid #e4dccf; border-radius: 12px; padding: 14px 16px; }
-  h2 { margin: 0 0 8px; font-size: 15px; }
-  .msg { background: #efeae2; border-radius: 12px; padding: 8px 10px; margin: 8px 0; }
-  .agent { background: #fff; border: 1px solid #1c1915; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 6px 0; border-bottom: 1px solid #efeae2; vertical-align: top; }
-  td:first-child { color: #6b645b; width: 46%; }
-  .stop { color: #8a2b1a; }
-  a { color: #1c1915; }
-  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.5}
+h1{font-size:28px;margin-bottom:4px}
+.sub{color:#555;margin-top:0}
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.flow span{background:#f4f1ea;border:1px solid #ddd;padding:8px 10px}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px}
 </style>
 </head>
 <body>
-<header>
-  <div><strong>One referral</strong><small>The agent collects. A person still takes the job.</small></div>
-  <div>First slice</div>
-</header>
-<main>
-  <section class="card">
-    <h2>Thread</h2>
-    <div class="msg">Partner: Leak under the sink, 14 Oak St. Photo attached.</div>
-    <div class="msg agent">Agent: Got the address and the leak. Homeowner number still missing.</div>
-    <div class="msg">Partner: 415-555-0142</div>
-    <div class="msg agent">Agent: Saved. A person on the team accepts the job. I do not price it.</div>
-  </section>
-  <section class="card">
-    <h2>Stored</h2>
-    <table>
-      <tr><td>Address</td><td>14 Oak St</td></tr>
-      <tr><td>What happened</td><td>Leak under the sink</td></tr>
-      <tr><td>Photo</td><td>On the record</td></tr>
-      <tr><td>Homeowner</td><td>415-555-0142</td></tr>
-      <tr><td>Price</td><td class="stop">Not set by the agent</td></tr>
-      <tr><td>Calendar</td><td>Only after a person says they are on the way</td></tr>
-    </table>
-    <p><a href="on-the-way.html">The calendar event</a><br><a href="architecture.html">Both paths</a></p>
-  </section>
-</main>
+<h1>SMS intake</h1>
+<p class="sub">Abhishek Rana. Python backends in production, including work at Microsoft.</p>
+<p>A text arrives. The same provider message id is stored once. STOP, UNSUBSCRIBE, CANCEL, END, and QUIT opt the number out before any other reply. A later text from that number does not start a new job.</p>
+<div class="flow">
+<span>1. Webhook</span><span>2. Dedup on message id</span><span>3. STOP check</span><span>4. Parse the ask</span><span>5. One reply</span>
+</div>
+<h2>Files</h2>
+<p><code>webhook.py</code> reads the provider payload. <code>optout.py</code> owns the stop words and the opted-out set. <code>jobs.py</code> creates the work item only after the stop check passes. The reply text is not assembled inside the HTTP handler.</p>
+<h2>Architecture</h2>
+<p>Provider posts to one endpoint. The handler writes the raw message, then calls opt-out, then either stops or opens a job. SPF, DKIM, and DMARC sit on the mail side of the same intake when the channel is email. SMS uses the provider signature instead.</p>
+<pre>STOP = {"stop", "unsubscribe", "cancel", "end", "quit"}
+
+def intake(message_id, from_number, body, seen, opted_out):
+    if message_id in seen:
+        return "duplicate"
+    seen.add(message_id)
+    if body.strip().lower() in STOP:
+        opted_out.add(from_number)
+        return "opted_out"
+    if from_number in opted_out:
+        return "blocked"
+    return "job"</pre>
+<p>Order matters. Dedup first, then STOP, then the old opt-out, then a job. Reversing that sends a reply to someone who already stopped.</p>
 </body>
 </html>
