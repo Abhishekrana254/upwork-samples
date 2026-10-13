@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Junior Python LLM Bot Developer</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Junior Python LLM Bot Developer</h1>
+<p class="sub">Abhishek Rana. A sketch of how this build would go.</p>
+
+<h2>The problem</h2>
+<p>Routine company work still needs a person to log in, collect data, decide what to do, and type the result into a web app, an old desktop tool, or a cloud service. The bots should do that loop without a manual step in the middle, and each routine should be able to use a local model or a hosted one.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>A FastAPI endpoint starts one named routine and stores its status.</li>
+<li>Playwright opens the web app, logs in, and collects the rows for that routine.</li>
+<li>The same prompt is sent to a local llama.cpp server or to the OpenAI API, chosen by a flag on the routine.</li>
+<li>The bot acts: a REST call for the cloud service, and PyAutoGUI only for the desktop tool that has no API.</li>
+<li>The result is written back to the web app or the cloud hook, and the status row is marked done.</li>
+<li>Setup notes and a short screen-share cover how to run that one routine again.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>app.py</code> is the FastAPI app. It starts a run and returns status. It does not call a model.</li>
+<li><code>bot.py</code> logs in with Playwright, collects the rows, and calls the hand-off.</li>
+<li><code>llm.py</code> switches one prompt between the local llama.cpp server and the OpenAI API.</li>
+<li><code>desktop.py</code> runs the few PyAutoGUI clicks the legacy desktop tool still needs.</li>
+<li><code>cloud.py</code> posts the result JSON to the cloud service you already use.</li>
+<li><code>README.md</code> is the setup: env vars, how to start llama.cpp, and how to run one routine.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>Each routine is one row: login URL, what to collect, whether the model is local, and where the result goes. <code>bot.py</code> is the only file that drives the browser. <code>llm.py</code> is the only file that talks to a model. The web app, the desktop tool, and the cloud hook stay separate callers, so a second routine does not share the first routine's session. The page only polls status. Nothing here assumes those systems have already been wired up.</p>
+
+<h2>Core step</h2>
+<pre>import json
+import urllib.request
+
+def complete(prompt, use_local, local_url, openai_key, model):
+    """One prompt, either llama.cpp on this machine or the OpenAI API."""
+    if use_local:
+        body = json.dumps({
+            "prompt": prompt,
+            "n_predict": 256,
+            "temperature": 0.1,
+        }).encode()
+        req = urllib.request.Request(
+            local_url.rstrip("/") + "/completion",
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode())["content"].strip()
+    body = json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + openai_key,
+        },
+    )
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        data = json.loads(resp.read().decode())
+    return data["choices"][0]["message"]["content"].strip()
+
+def run_once(page, task):
+    """Log in, collect the rows, ask the chosen model, post the result."""
+    page.goto(task["login_url"])
+    page.fill(task["user_sel"], task["username"])
+    page.fill(task["pass_sel"], task["password"])
+    page.click(task["submit_sel"])
+    page.wait_for_url(task["after_login"])
+    rows = page.locator(task["row_sel"]).all_inner_texts()
+    prompt = "Turn these rows into the next action.\n" + "\n".join(rows)
+    answer = complete(
+        prompt,
+        task["use_local"],
+        task["llama_url"],
+        task["openai_key"],
+        task["model"],
+    )
+    payload = json.dumps({"routine": task["name"], "rows": rows, "answer": answer}).encode()
+    req = urllib.request.Request(
+        task["cloud_hook"],
+        data=payload,
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        ok = resp.status == 200
+    return {"ok": ok, "rows": len(rows), "answer": answer}</pre>
+
+<h2>Questions to settle first</h2>
+<ol>
+<li>Which single routine is first: the login page, the fields to collect, and the place the result must land?</li>
+<li>Which steps must stay on a local model, and which may call the OpenAI API?</li>
+<li>Does the legacy desktop tool have a file export or a hotkey, or is the screen the only way in?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
