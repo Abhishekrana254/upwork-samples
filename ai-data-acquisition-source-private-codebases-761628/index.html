@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Private codebase vetting</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Private codebase vetting</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>An AI training pipeline needs real production repositories, not toy demos, across stacks such as Python, Rust, C++, TypeScript, Go, and Java. Each repository has to come with a non-exclusive license from the original copyright holder, a Git history that is actually theirs, tests, documentation, and a build that runs. Before any contract starts, 2 to 3 anonymized sample packs have to pass a quality and rights review. After that, batches must be secret-scrubbed and still include tests, docs, and commit logs. No milestone is paid until those first packs are approved.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Record the copyright holder and a signed non-exclusive license before any files are copied.</li>
+<li>Count commits, test files, and whether a build command is recorded.</li>
+<li>Scan the tree for keys and tokens, then replace each hit.</li>
+<li>Build an anonymized sample pack and stop until that pack is approved.</li>
+<li>Deliver the scrubbed batch with tests, docs, commit logs, and the rights note.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>vet.py</code> rejects a repo with a short history, no signed rights flag, too few tests, no build note, or a secret still in the tree.</li>
+<li><code>pack.py</code> writes the anonymized review copy after scrubbing, without removing the rights note.</li>
+<li><code>manifest.csv</code> lists a repo id, language, commit count, test count, and accept or the reject reasons.</li>
+<li><code>rights_note.md</code> stores who signed, and that the license is non-exclusive. It stays outside the training files.</li>
+<li><code>README.md</code> states that a batch is not sent until the sample pack is approved.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The check is a Python gate in front of any delivery. A repository is accepted only when the history is deep enough, tests and a build note are present, the rights flag is signed, and a second scan finds no secrets. Scrubbing replaces a hit with a marker. The sample pack is a review copy with secrets and contact lines removed. The rights note is kept beside the pack so the owner is not erased. This page is that gate. It is not a licensed repository and it is not a batch ready for training.</p>
+
+<h2>Accept or reject one repo</h2>
+<pre>import re
+
+SECRET_PATTERNS = [
+    ("aws_access_key", re.compile(r"AKIA[0-9A-Z]{16}")),
+    ("assigned_secret", re.compile(r"(?i)(?:api[_-]?key|secret|token)\s*[:=]\s*['\"][^'\"]{12,}['\"]")),
+    ("private_key", re.compile(r"-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----")),
+]
+
+def find_secrets(text):
+    return [name for name, pat in SECRET_PATTERNS if pat.search(text)]
+
+def scrub(text):
+    out = text
+    for name, pat in SECRET_PATTERNS:
+        out = pat.sub("[REDACTED:" + name + "]", out)
+    return out
+
+def vet_repo(meta, files, min_commits=20, min_tests=1):
+    reasons = []
+    if meta.get("commits", 0) &lt; min_commits:
+        reasons.append("shallow_history")
+    if not meta.get("rights_signed"):
+        reasons.append("rights")
+    if meta.get("test_files", 0) &lt; min_tests:
+        reasons.append("tests")
+    if not meta.get("build"):
+        reasons.append("build")
+    secret_hits = []
+    for path, text in files.items():
+        for name in find_secrets(text):
+            secret_hits.append(path + ":" + name)
+    if secret_hits:
+        reasons.append("secrets")
+    return {"accept": not reasons, "reasons": reasons, "secrets": secret_hits}</pre>
+<p>A repo with 40 commits, a signed rights flag, 3 test files, and a build note is accepted when the source is clean. Four commits returns shallow_history. A missing signature returns rights. A file that contains an AKIA key and an assigned api_key is rejected for secrets, and <code>scrub</code> replaces both hits so a second scan is empty. A line that begins a private key is flagged the same way.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>What is the minimum commit count and test count, and which languages are in the first batch?</li>
+<li>Who signs the non-exclusive license, and where is that note stored relative to the code?</li>
+<li>Besides secrets, which fields must leave the sample pack, such as author email or company name?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
