@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-Commerce Automation Specialist Needed</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>E-Commerce Automation Specialist Needed</h1>
+<p class="sub">Abhishek Rana. A sketch of how this build would go.</p>
+
+<h2>The problem</h2>
+<p>FCI London sells luxury furniture and needs product data to move from supplier websites and price lists onto the site without a person retyping each row. A scraper should pull descriptions, specifications, images, and prices. Price lists arrive as PDF, Excel, or CSV and have to become structured import files, including pricing combinations that follow currency changes. Images need resizing, compression, and format changes. A scheduled run should keep prices, inventory, and product details current.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Scrape one supplier page into a raw table: sku, name, specs, image URL, and cost.</li>
+<li>Read that supplier's price list from Excel, CSV, or a text extract of the PDF.</li>
+<li>Apply the currency rate and write one import row per finish or size combination.</li>
+<li>Download each image, resize it, and save a compressed file the site can take.</li>
+<li>Write the import CSV and skip any row that fails a required-field check.</li>
+<li>Run the same steps on a schedule and log what changed.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>scrape.py</code> uses Scrapy or BeautifulSoup to pull one supplier page into rows. It does not set prices.</li>
+<li><code>prices.py</code> reads the price list, applies the rate, and expands finish combinations.</li>
+<li><code>images.py</code> uses Pillow to resize, compress, and convert each product image.</li>
+<li><code>import_csv.py</code> writes the website import file and records rows that fail validation.</li>
+<li><code>schedule.py</code> runs the four steps on a timer so prices stay current.</li>
+<li><code>README.md</code> lists the supplier, the rate rule, and the command to run one pass.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>Each step reads a table and writes the next table. The scraper never sees the markup rule. The price step never downloads an image. The import file is the only artifact the website needs. A bad row is logged and left out, so one broken supplier line does not stop the file. The schedule calls the same functions the manual run calls. This page is a sketch of that pipeline. It does not assume the site import or the supplier feeds are already connected.</p>
+
+<h2>Core step</h2>
+<pre>def money(value):
+    """Strip currency marks and thousands separators. Return a float."""
+    text = str(value).strip().replace(",", "")
+    for mark in ("GBP", "USD", "EUR", "Rs", "£", "$"):
+        text = text.replace(mark, "")
+    return float(text.strip())
+
+def expand_prices(rows, rate, markup):
+    """One supplier row can list several finishes. Emit one import row for each."""
+    out = []
+    rate = float(rate)
+    markup = float(markup)
+    for row in rows:
+        cost = money(row["cost"])
+        price = round(cost * rate * (1 + markup), 2)
+        finishes = [part.strip() for part in str(row.get("finishes") or "Standard").split("|")]
+        finishes = [part for part in finishes if part]
+        for finish in finishes:
+            code = "".join(ch for ch in finish.upper() if ch.isalpha())[:3] or "STD"
+            out.append({
+                "sku": "%s-%s" % (str(row["sku"]).strip(), code),
+                "name": str(row["name"]).strip(),
+                "finish": finish,
+                "cost": "%.2f" % cost,
+                "price": "%.2f" % price,
+                "image": str(row.get("image") or "").strip(),
+            })
+    return out</pre>
+
+<h2>Questions to settle first</h2>
+<ol>
+<li>Which supplier is first, and is the price list a PDF, an Excel file, or a CSV?</li>
+<li>What is the currency rule, and which fields make a pricing combination (finish, size, fabric)?</li>
+<li>Which image width, height, and file type does the website import accept?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
