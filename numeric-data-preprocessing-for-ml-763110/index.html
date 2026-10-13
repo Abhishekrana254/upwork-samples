@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Numeric preprocessing for ML</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Numeric preprocessing for ML</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>Large numeric CSVs are messy and need to be ready for model training. The pipeline has to be reproducible: audit the raw files, handle missing values and extremes, scale or normalize where it matters, build useful features, and write train, validation, and test sets. Python with pandas, NumPy, and scikit-learn is the default. The same steps must run inside a Docker image that CI can start with one command. The hand-off is cleaned CSV or Parquet, versioned scripts, a Dockerfile, a short README, and a report of decisions, assumptions, and what to do next.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Audit each raw CSV: row count, missing cells, and the spread of each numeric column.</li>
+<li>Split into train, validation, and test before any fill or scale is fit.</li>
+<li>Fit median, clip bounds, and scale on the training rows only.</li>
+<li>Apply that fit to validation and test, and add the agreed features.</li>
+<li>Write the three sets and a short report, then run the same script from Docker.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>audit.py</code> prints missing counts and simple spread for each numeric column. It does not change the file.</li>
+<li><code>preprocess.py</code> splits the rows, fits on train, applies the fit, and adds features.</li>
+<li><code>Dockerfile</code> installs pandas, NumPy, and scikit-learn and runs <code>preprocess.py</code>.</li>
+<li><code>README.md</code> is the one-command reproduction note for CI.</li>
+<li><code>report.md</code> records each decision, the assumption behind it, and the next step.</li>
+<li><code>out/train.parquet</code>, <code>out/val.parquet</code>, and <code>out/test.parquet</code> are the sets the model code should read.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The split happens first so later rows cannot leak into the fit. Medians, clip bounds, and the scale are computed on the training split only, then applied to validation and test. A missing amount is filled with the training median. A value outside the training clip bounds is pulled back to that bound before scaling. A ratio feature uses the filled raw numbers, not the scaled ones. Docker runs that same script so CI rebuilds the three files from the raw CSV. The report states what was assumed. This is a sketch of that pipeline. It is not a claim that these datasets have already been cleaned.</p>
+
+<h2>Fit on train, apply after</h2>
+<pre>def fit_columns(rows, features):
+    stats = {}
+    for name in features:
+        values = sorted(row[name] for row in rows if row[name] is not None)
+        if not values:
+            raise ValueError("empty column " + name)
+        n = len(values)
+        median = values[n // 2]
+        q1 = values[n // 4]
+        q3 = values[(3 * n) // 4]
+        iqr = q3 - q1
+        mean = sum(values) / n
+        var = sum((value - mean) ** 2 for value in values) / n
+        std = var ** 0.5 or 1.0
+        stats[name] = {
+            "median": median,
+            "lo": q1 - 1.5 * iqr,
+            "hi": q3 + 1.5 * iqr,
+            "mean": mean,
+            "std": std,
+        }
+    return stats
+
+def apply_row(row, stats, features):
+    clean = {}
+    for name in features:
+        spec = stats[name]
+        value = row[name] if row[name] is not None else spec["median"]
+        if value &lt; spec["lo"]:
+            value = spec["lo"]
+        elif value &gt; spec["hi"]:
+            value = spec["hi"]
+        clean[name] = (value - spec["mean"]) / spec["std"]
+    amount = row["amount"] if row["amount"] is not None else stats["amount"]["median"]
+    units = row["units"] if row["units"] is not None else stats["units"]["median"]
+    clean["ratio"] = amount / units
+    return clean</pre>
+<p>On training amounts 10, 20, 30, 40, and 50, the median is 30 and the high clip is 70. A missing amount becomes that median, then scaled. An amount of 1000 is clipped to 70 before scaling, so it does not dominate the column. The ratio for a missing amount and 4 units is 30 / 4. A 10-row split with fractions 0.6 and 0.2 yields 6, 2, and 2 rows, and the same seed repeats the same split.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Which column is the target, and should the split be by row, by time, or by group?</li>
+<li>What should count as an extreme value in this data?</li>
+<li>Should the CI artifact be CSV or Parquet, and about how large is one raw file?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
