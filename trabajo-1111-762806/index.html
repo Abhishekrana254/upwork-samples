@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First AI scripts in Spanish</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>First AI scripts in Spanish</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>The student wants a serious start in artificial intelligence, preferably in Spanish: the ideas behind current models, then a first set of Python scripts using TensorFlow or PyTorch. Machine Learning, natural language, and computer vision are all still open, so the three areas need a plain comparison before one track is chosen. The hand-off is live sessions for explanation and questions, with a recording, practical exercises on small documented datasets, and a personal roadmap for after the course. The work should show a result that can be rerun in the first week.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Compare one small example from Machine Learning, natural language, and computer vision.</li>
+<li>Pick the starting track together.</li>
+<li>Train a tiny model in plain Python so the update step is visible.</li>
+<li>Move that same dataset into TensorFlow or PyTorch.</li>
+<li>Record the session, keep the exercise, and write the roadmap in Spanish.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>semana1_lineal.py</code> trains a small linear model on six short Spanish sentences and prints positivo or negativo.</li>
+<li><code>semana2_pytorch.py</code> runs the same sentences in PyTorch once the plain loop is clear. A TensorFlow twin is the alternative if that library is chosen.</li>
+<li><code>notas_ml.md</code>, <code>notas_pln.md</code>, and <code>notas_vision.md</code> are the three short comparisons, in Spanish.</li>
+<li><code>datos_frases.csv</code> is the tiny documented dataset for week one.</li>
+<li><code>hoja_de_ruta.md</code> is the personal roadmap and the suggested resources after the sessions.</li>
+<li><code>README.md</code> says how to rerun the script and where the recording link goes.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>Week one stays in plain Python so each weight update can be read on one screen. The dataset is six Spanish sentences and a positivo or negativo label. After that script runs, the same rows move into PyTorch or TensorFlow, which is the first library exercise. Three short notes compare the areas before the track is locked. Each live session is recorded. The roadmap is a separate note for what to study next. This is a sketch of those materials. It is not a finished course.</p>
+
+<h2>Week-one trainer</h2>
+<pre>VOCAB = ["bueno", "malo", "encanta", "odio", "util", "lento"]
+
+def tokens(text):
+    cleaned = []
+    for raw in text.lower().split():
+        word = raw.strip(".,;:!?")
+        if word:
+            cleaned.append(word)
+    return cleaned
+
+def vector(text):
+    words = set(tokens(text))
+    return [1.0 if word in words else 0.0 for word in VOCAB]
+
+def sigmoid(z):
+    e = 2.718281828 ** (-z if z &gt;= 0 else z)
+    return (1.0 / (1.0 + e)) if z &gt;= 0 else (e / (1.0 + e))
+
+def train(rows, labels, steps=400, lr=0.8):
+    weights = [0.0] * len(VOCAB)
+    bias = 0.0
+    for _ in range(steps):
+        for features, label in zip(rows, labels):
+            score = bias
+            for weight, value in zip(weights, features):
+                score += weight * value
+            error = sigmoid(score) - label
+            weights = [weight - lr * error * value for weight, value in zip(weights, features)]
+            bias -= lr * error
+    return weights, bias
+
+def predict(weights, bias, text):
+    score = bias
+    for weight, value in zip(weights, vector(text)):
+        score += weight * value
+    return 1 if sigmoid(score) &gt;= 0.5 else 0</pre>
+<p>Trained on "el curso es bueno y util", "odio este libro malo", "me encanta porque es util", "es lento y malo", "un libro bueno", and "muy lento", the script labels all six correctly. "encanta y bueno" comes back positivo. "odio y lento" comes back negativo. Words such as bueno and encanta get positive weights. malo, odio, and lento get negative weights.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Should the live session be spoken in Spanish, or are Spanish notes enough if the call is in English?</li>
+<li>For the library week, TensorFlow or PyTorch?</li>
+<li>How many hours per week, and what time zone should the calls use?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
