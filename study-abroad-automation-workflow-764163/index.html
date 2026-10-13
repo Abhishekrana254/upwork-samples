@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Study abroad lead workflow</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Study abroad lead workflow</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>Study abroad consultancies need one working MVP that can later be copied for more than one client. A lead comes in from one source, such as Meta Lead Ads or a website form, and lands in Google Sheets or a database. Rules that the consultancy can change decide if the student is qualified. WhatsApp Business API sends the reply. A counselor is assigned and notified. Consultation booking and reminders run on their own. A basic dashboard shows where each lead stands. Duplicates are blocked, errors are caught, and a person takes over when the automation should stop. The posted budget is Rs 15,000 to Rs 35,000, and the posted window is about 2 to 3 weeks once the integrations are approved.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Receive the lead on an n8n webhook from Meta Lead Ads or the form.</li>
+<li>Normalise the phone and skip the row if that phone is already stored.</li>
+<li>Apply the qualification rules, or hand the lead to a person when a required field is missing.</li>
+<li>Assign the counselor with the fewest open leads and send the WhatsApp notice.</li>
+<li>Book the consultation, send reminders, and show the same rows on a simple dashboard.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>lead_intake.workflow.json</code> is the n8n webhook that accepts Meta Lead Ads or the form and writes the sheet.</li>
+<li><code>qualify_assign.workflow.json</code> calls the rules, assigns a counselor, and sends WhatsApp.</li>
+<li><code>booking_reminders.workflow.json</code> books the consultation and sends the reminder.</li>
+<li><code>rules.py</code> normalises the phone, blocks duplicates, qualifies, and picks the counselor.</li>
+<li><code>dashboard.html</code> reads the sheet and shows status, counselor, and next reminder.</li>
+<li><code>README.md</code> covers deploy, the error path, and the third-party tools with their recurring costs.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>n8n is the runner. The webhook receives one lead, <code>rules.py</code> decides duplicate, handoff, nurture, or qualified, and n8n writes that result to Google Sheets. Qualified rows trigger a WhatsApp Business API message and a counselor notification. A second workflow handles booking and reminders. If a call fails, the row is marked for a person instead of being dropped. The dashboard only reads the sheet. Each consultancy gets its own rule set and counselor list, so the same workflows can be copied later. The sketch does not assume Meta, WhatsApp, or the sheet are already connected.</p>
+
+<h2>Routing one lead</h2>
+<pre>def phone_key(raw):
+    digits = "".join(ch for ch in str(raw) if ch.isdigit())
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    if len(digits) == 11 and digits.startswith("0"):
+        digits = digits[1:]
+    return digits
+
+def route_lead(lead, seen, rules, counselors, open_counts):
+    phone = phone_key(lead.get("phone", ""))
+    if len(phone) != 10:
+        return {"action": "handoff", "reason": "phone", "phone": phone}
+    if phone in seen:
+        return {"action": "duplicate", "phone": phone}
+    if lead.get("ielts") is None or lead.get("country") is None or lead.get("intake") is None:
+        return {"action": "handoff", "reason": "missing field", "phone": phone}
+    qualified = (
+        lead["country"] in rules["countries"]
+        and lead["ielts"] &gt;= rules["min_ielts"]
+        and lead["intake"] in rules["intakes"]
+    )
+    if not qualified:
+        return {"action": "nurture", "phone": phone}
+    counselor = min(counselors, key=lambda name: (open_counts.get(name, 0), name))
+    return {"action": "qualified", "phone": phone, "counselor": counselor}</pre>
+<p>With countries Canada and UK, minimum IELTS 6.0, and intakes Sep and Jan, a UK lead at IELTS 6.5 for Jan with phone 09844444444 becomes qualified for Rohit when Rohit has fewer open leads than Asha. The same phone written as +91 98111 11111 is a duplicate. IELTS 5.5 is nurture. A short or missing phone is a handoff.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Is the first source Meta Lead Ads or a website form?</li>
+<li>Which WhatsApp Business API provider is in use, and is the business number already verified?</li>
+<li>How many counselors are in the first rotation, and is Google Sheets the store for this MVP?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
