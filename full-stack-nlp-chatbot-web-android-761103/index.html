@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Web and Android chatbot</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Web and Android chatbot</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>The product vision is already set: an AI chatbot in the browser and as an Android app. What is missing is the path from that vision to something people can use. That means a database, server logic, model integration, and both interfaces talking to the same place. The NLP side has to choose or fine-tune a model, run inference, and expose a clean endpoint. The web client can be React or Vue. The Android app can be Kotlin, Flutter, or React Native. Both must share the backend and the database. The hand-off is a deployed backend with authentication, chat history, and the NLP service, a responsive web UI, an Android build on an internal test track, short docs, and a session so the owner can maintain the code.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Create accounts and store each chat turn against the signed-in user.</li>
+<li>Build the model request from that user's recent turns plus the notes that may answer the question.</li>
+<li>Return the reply and save it, so the next turn still has the thread.</li>
+<li>Point the web client and the Android app at the same endpoint.</li>
+<li>Publish the Android build to an internal track and walk through the repo.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>api/auth.py</code> checks the session before any history is read.</li>
+<li><code>api/chat.py</code> appends a turn, keeps only that user's rows, and builds the model messages.</li>
+<li><code>api/store.py</code> writes chat history. Another user's rows are never returned.</li>
+<li><code>web/src/Chat.jsx</code> is the React screen. It posts the message and renders the thread.</li>
+<li><code>android/app/src/main/java/chat/ChatScreen.kt</code> is the Kotlin screen. It calls the same route.</li>
+<li><code>README.md</code> covers run, auth, where history lives, and how the internal Android track is published.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>One FastAPI service sits between both clients and the model. The web app and the Android app send the new message and a session. The service loads only that user's recent turns, adds a short system line and any notes, and asks the model. The reply is stored before it is sent back, so a later message on the other device still sees the thread. Empty text is rejected. A turn from a different account is not copied into the prompt. This is a sketch of that shared core. It is not a claim that the app is already in a store or a browser.</p>
+
+<h2>One prompt for both clients</h2>
+<pre>def append_turn(history, user_id, role, text):
+    if role not in ("user", "assistant"):
+        raise ValueError("role")
+    cleaned = text.strip()
+    if not cleaned:
+        raise ValueError("empty")
+    return history + [{"user_id": user_id, "role": role, "text": cleaned}]
+
+def history_for(history, user_id, limit=6):
+    rows = [row for row in history if row["user_id"] == user_id]
+    return rows[-limit:]
+
+def model_messages(history, user_id, query, notes):
+    messages = [{
+        "role": "system",
+        "text": "Answer from the notes. If the notes do not cover it, say so.",
+    }]
+    for row in history_for(history, user_id):
+        messages.append({"role": row["role"], "text": row["text"]})
+    body = "Notes:\n" + "\n".join(notes) + "\n\nQuestion: " + query.strip()
+    messages.append({"role": "user", "text": body})
+    return messages</pre>
+<p>A user asks "Where is my order?" and the assistant says "It ships Friday." A second account's line, "Secret other user", is not in the next prompt. The new question is "Can I change it?" and the note "Orders can be changed before Thursday." is included. Blank text is rejected. Only the last six turns for that user are kept.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Web in React or Vue, and Android in Kotlin, Flutter, or React Native?</li>
+<li>Should answers come from your own notes, a general model, or both?</li>
+<li>What login do you want, and where should chat history be stored?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
