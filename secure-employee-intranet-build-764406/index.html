@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Employee intranet with expiry</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Employee intranet with expiry</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>The portal should follow the layout of a reference site that will be shared in private. Only employees get in. Each user the admin creates has an expiry date, and once that date has passed the account locks on its own. The admin screen adds, edits, and bulk-imports users, sets expiry, and shows activity. Login is token-based, with password reset, and SSO only if it shortens the first release. Staff need a way to message each other. The hand-off is a responsive front end, a backend with roles and expiry, the admin screen, the messaging piece, a deploy script, and a short setup note for the owner's server. An expired account cannot log in until someone reactivates it. A new user should be addable in under a minute. Pages should load in under two seconds on ordinary broadband.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Match the reference layout in the web app after the private link is shared.</li>
+<li>Create a user with an expiry date from the admin screen or a bulk file.</li>
+<li>On every login, reject the token if the expiry date is already past or the account is locked.</li>
+<li>Let an admin set a new expiry to turn the account back on.</li>
+<li>Add staff messages on the same session, then ship the deploy script and the setup note.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>api/auth.py</code> issues the token and runs the expiry check on each request.</li>
+<li><code>api/users.py</code> creates, edits, and bulk-imports users, and writes the activity row.</li>
+<li><code>api/messages.py</code> stores a staff message for the signed-in user only.</li>
+<li><code>web/src/AdminUsers.jsx</code> is the React form for one user or a CSV import.</li>
+<li><code>web/src/Messages.jsx</code> is the message list, usable on a narrow screen.</li>
+<li><code>deploy.sh</code> and <code>README.md</code> are the server launch steps.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>React talks to a FastAPI backend. The admin creates a user with a status and an expiry stored as a date. Login checks that pair before a token is accepted. If today is after the expiry date, the result is expired and no token is issued. A locked status stays blocked even when the date is still ahead, so reactivation is a deliberate admin edit, not a clock reset. Bulk import drops a row that has no email or no full date. Staff messages use the same token. The reference layout is applied in the React pages once that site is shared. This is a sketch of the gate. It is not a claim that the portal is already online.</p>
+
+<h2>Lock when the date has passed</h2>
+<pre>def can_login(user, today):
+    if user["status"] == "locked":
+        return False, "locked"
+    if today &gt; user["expiry"]:
+        return False, "expired"
+    return True, "ok"
+
+def import_row(row):
+    email = row.get("email", "").strip().lower()
+    expiry = row.get("expiry", "").strip()
+    if "@" not in email or len(expiry) != 10:
+        return None
+    return {"email": email, "expiry": expiry, "status": "active"}</pre>
+<p>On 2026-10-13, an active user whose expiry is 2026-10-12 is expired. The same day is still allowed when expiry is 2026-10-13. A locked user with expiry 2026-12-01 stays locked. Setting status back to active and expiry to 2026-11-01 lets them in again. A bulk row " A@B.com " with expiry 2026-12-01 becomes a@b.com and active. A row with no @ or a blank date is skipped.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Is the expiry date the last day a login still works?</li>
+<li>Staff messages as a simple chat, or a short forum?</li>
+<li>Token login and password reset first, or SSO in the same release?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
