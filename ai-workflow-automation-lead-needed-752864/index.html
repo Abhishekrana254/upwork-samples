@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automation Anywhere agent step</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Automation Anywhere agent step</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>A programme needs large-language-model reasoning and an agent layer inside Automation Anywhere. Several labour-intensive processes should become workflows that run on their own and can be watched. The work starts with an architecture map, then a proof on one process, then production, with a small in-house team. Prompts, model hosting or fine-tuning (OpenAI, Anthropic, Hugging Face, or similar), and a call from an Automation Anywhere package or a REST step are in scope. LangChain or a similar stack can sit behind that call. Success is decision accuracy, latency, and clean code in Git, with tasks in Jira and one-week sprints. The hand-off is a blueprint, one bot that finishes the chosen workflow, a knowledge-transfer note, and a live walkthrough.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Pick one process and write the blueprint: components, data flow, and security.</li>
+<li>Define the decision the agent must return, and the latency budget.</li>
+<li>Expose that decision as a REST call the Automation Anywhere bot can make.</li>
+<li>Score each run for accuracy against a known label, and record latency.</li>
+<li>Walk the in-house team through the bot, the prompt, and the Git history.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>blueprint.md</code> lists every component, the data flow, and the security notes (keys, logs, what the bot may see).</li>
+<li><code>prompts/decision.txt</code> is the prompt for the chosen model. The rule check below still runs after the model replies.</li>
+<li><code>agent/decide.py</code> turns one case into approve, review, or handoff, then scores accuracy and latency.</li>
+<li><code>agent/app.py</code> is the FastAPI route the bot calls. It returns the action, the reason, and the timing.</li>
+<li><code>aa/bot_steps.md</code> is the Automation Anywhere bot: read the case, call the REST route, write the result, stop for a person on handoff.</li>
+<li><code>README.md</code> covers how to run the service, where the daily score is stored, and what the walkthrough should show.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>Automation Anywhere stays the runner. It sends one case to a small Python service and waits for a structured action. The model may draft a reason. <code>decide.py</code> still applies the business rule, so a missing field or a bad amount cannot be approved. Each call stores whether the action matched the gold label and whether it finished inside the latency budget. Secrets stay in the Automation Anywhere credential store, not in the bot file and not in Git. The first bot covers one process only. Other processes reuse the same route with a different prompt and limit. This is a sketch of that first bot. It is not a claim that the programme is already running.</p>
+
+<h2>Score one decision</h2>
+<pre>def decide(case, limit=5000):
+    required = ("id", "vendor", "amount")
+    missing = [key for key in required if case.get(key) in (None, "")]
+    if missing:
+        return "handoff", "missing"
+    amount = case["amount"]
+    if not isinstance(amount, (int, float)) or amount &lt; 0:
+        return "handoff", "amount"
+    if amount &gt; limit:
+        return "review", "over_limit"
+    return "approve", "within_limit"
+
+def judge(action, gold, elapsed_ms, max_ms=1500):
+    correct = action == gold
+    within = elapsed_ms &lt;= max_ms
+    return {
+        "correct": correct,
+        "latency_ms": round(elapsed_ms, 1),
+        "within_budget": within,
+        "pass": correct and within,
+    }</pre>
+<p>A case with a blank vendor is handoff. Amount 9000 against a 5000 limit is review. Amount 100 is approve. An approve that matches the gold label in 400 ms passes. The same approve at 2000 ms fails the latency budget. An approve when the gold label is review fails accuracy. Those checks are what the bot log would keep.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Which single process is the first end-to-end bot?</li>
+<li>Is the model OpenAI, Anthropic, or a Hugging Face model you host?</li>
+<li>Where does Automation Anywhere run, and who on the in-house team joins the weekly sprint?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
