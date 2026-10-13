@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Indian Speech-to-Text Model Customization</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Indian Speech-to-Text Model Customization</h1>
+<p class="sub">Abhishek Rana. A sketch of how this build would go.</p>
+
+<h2>The problem</h2>
+<p>The speech stack has to stay fully open source and run on local Windows GPU servers with CUDA and PyTorch. The target languages are Hindi, Tamil, Bengali, Marathi, Telugu, Kannada, and Gujarati. Whisper, AI4Bharat Indic models, and Vanni from IISc are the starting engines. The lift that matters is word error rate, latency, and memory: at least five languages should beat the base model by 10 percent relative WER on the internal test set, and a 15-second clip should transcribe in under two seconds on an RTX A4000.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Freeze one internal test set per language: wav files plus reference text.</li>
+<li>Score the untouched base checkpoint for WER, seconds per clip, and peak GPU memory.</li>
+<li>Fine-tune that checkpoint on in-domain audio and add the domain word list for that language.</li>
+<li>If a 15-second clip is still over two seconds, quantise or export to ONNX and re-time it on the A4000.</li>
+<li>Serve the chosen weights from a container with a REST endpoint and a gRPC endpoint.</li>
+<li>Write one row per language: base WER, tuned WER, latency, and memory.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>train.sh</code> sets the CUDA device, the language, and the open checkpoint, then starts the run.</li>
+<li><code>finetune.ipynb</code> is the PyTorch fine-tune for Whisper, an Indic model, or Vanni. One language per notebook section.</li>
+<li><code>wer.py</code> computes word error rate and records latency and peak GPU bytes for one clip.</li>
+<li><code>serve.py</code> is the FastAPI REST endpoint. It loads the local weights and returns text.</li>
+<li><code>grpc_server.py</code> is the same transcribe call over gRPC.</li>
+<li><code>Dockerfile</code> packages the inference service for the on-prem GPU host.</li>
+<li><code>GETTING_STARTED.md</code> tells the internal team how to retrain one language later.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>Training and serving stay apart. The notebook writes a weights folder per language. The container only reads that folder. No call leaves the GPU server. The benchmark script is the gate: a language is kept only when relative WER drops by at least 10 percent and a 15-second clip finishes in under two seconds. Languages that miss the bar stay on the base checkpoint and are listed that way in the report. This page does not assume those weights or that test set already exist.</p>
+
+<h2>Core step</h2>
+<pre>import time
+import torch
+
+def word_error_rate(reference, hypothesis):
+    """Edits divided by reference length. Empty reference returns 0."""
+    ref = reference.split()
+    hyp = hypothesis.split()
+    n, m = len(ref), len(hyp)
+    if n == 0:
+        return 0.0
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            cost = 0 if ref[i - 1] == hyp[j - 1] else 1
+            dp[i][j] = min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+    return dp[n][m] / n
+
+def score_clip(model, waveform, reference, language):
+    """WER, wall time, and peak GPU memory for one clip on the local device."""
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+    start = time.perf_counter()
+    text = model.transcribe(waveform, language=language)["text"]
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    elapsed = time.perf_counter() - start
+    mem = torch.cuda.max_memory_allocated() if torch.cuda.is_available() else 0
+    base = float(reference.get("base_wer") or 0)
+    wer = word_error_rate(reference["text"], text)
+    relative = (base - wer) / base if base else 0.0
+    return {
+        "language": language,
+        "wer": wer,
+        "relative_drop": relative,
+        "seconds": elapsed,
+        "under_two_seconds": elapsed &lt; 2.0,
+        "gpu_bytes": mem,
+    }</pre>
+
+<h2>Questions to settle first</h2>
+<ol>
+<li>Which open checkpoint is the base for each language: a Whisper size, an Indic model, or Vanni?</li>
+<li>How is the internal test set laid out, and about how many minutes of audio are there per language?</li>
+<li>Is the RTX A4000 the training GPU as well as the latency target, and is Windows the only host?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
