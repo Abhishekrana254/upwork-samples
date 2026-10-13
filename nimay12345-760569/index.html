@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nimay12345</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Nimay12345</h1>
+<p class="sub">Abhishek Rana. A sketch of how this build would go.</p>
+
+<h2>The problem</h2>
+<p>Social posts, customer reviews, and email messages need a daily label for the dominant emotion: Happy, Sad, or Angry. The raw text is already in CSV files, one unique ID and one text field per row. The language is English only. The model has to be accurate enough to run unattended, simple to retrain when more labeled rows arrive, and able to run on a normal CPU. The hand-off is a short report of precision, recall, and F1, plus a demo script or notebook that reads a CSV and prints the labels.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Read the CSV and keep the ID next to the text.</li>
+<li>Clean the English text: lower case, drop links, drop characters that are not letters.</li>
+<li>Fine-tune a small Hugging Face classifier on rows that already have a Happy, Sad, or Angry label.</li>
+<li>Score precision, recall, and F1 for each label on a held-out slice.</li>
+<li>Run the same clean-and-predict steps on a new CSV from a demo script.</li>
+<li>Retrain from the same script when a larger labeled file is added.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>clean.py</code> normalises one text field. It does not assign an emotion.</li>
+<li><code>train.py</code> fine-tunes the Hugging Face classifier and writes a local model folder.</li>
+<li><code>predict.py</code> loads that folder and writes ID plus Happy, Sad, or Angry.</li>
+<li><code>report.py</code> prints precision, recall, and F1 for the three labels.</li>
+<li><code>demo.ipynb</code> runs clean, predict, and the report on one sample CSV.</li>
+<li><code>README.md</code> says how to install the CPU build and how to retrain.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The CSV is the only input. Cleaning is a pure function, so the trainer and the daily run share it. The model folder is the only artifact the predictor reads. The report is computed from pairs of true label and predicted label, not from a printed screenshot. A row with empty text keeps its ID and gets no emotion, so the row count does not change. This page is a sketch of that workflow. It does not assume a labeled training file or a deployed service already exists.</p>
+
+<h2>Core step</h2>
+<pre>import re
+
+LABELS = ("Happy", "Sad", "Angry")
+
+def clean_text(text):
+    """English only: lower case, drop urls, keep letters and apostrophes."""
+    text = str(text or "").lower()
+    text = re.sub(r"https?://\S+", " ", text)
+    text = re.sub(r"[^a-z'\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+def class_scores(y_true, y_pred, label):
+    """Precision, recall, and F1 for one emotion label."""
+    tp = sum(1 for t, p in zip(y_true, y_pred) if t == label and p == label)
+    fp = sum(1 for t, p in zip(y_true, y_pred) if t != label and p == label)
+    fn = sum(1 for t, p in zip(y_true, y_pred) if t == label and p != label)
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+    return {"label": label, "precision": precision, "recall": recall, "f1": f1}
+
+def emotion_report(rows):
+    """rows are dicts with keys label and pred. One score dict per emotion."""
+    y_true = [row["label"] for row in rows]
+    y_pred = [row["pred"] for row in rows]
+    return [class_scores(y_true, y_pred, label) for label in LABELS]</pre>
+
+<h2>Questions to settle first</h2>
+<ol>
+<li>Do the CSVs already include a Happy, Sad, or Angry label, or only the ID and the text?</li>
+<li>About how many labeled rows are there for each emotion?</li>
+<li>If the text has no clear emotion, should the cell stay blank or must it be one of the three labels?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
