@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSV Date Formatting Automation</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>CSV Date Formatting Automation</h1>
+<p class="sub">Abhishek Rana. A sketch of how this build would go.</p>
+
+<h2>The problem</h2>
+<p>CSVs are supposed to arrive with dates already in DD/MM/YYYY, but cells often show up as D/M/YY or YYYY-MM-DD. Those files then go into a reporting workflow. The tool should take one uploaded CSV, scan every column or only the columns that are flagged, turn cells that are clearly dates into DD/MM/YYYY, and hand back a downloadable CSV. Non-date fields stay as they are. Row count stays the same. It runs locally on Windows or macOS. Python and pandas are the preferred stack so the script can be extended later.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Pass a CSV path, or pick the file in a small local window.</li>
+<li>Read it with pandas and keep the original column order.</li>
+<li>Walk every cell, or only the flagged columns.</li>
+<li>If the text matches a known date pattern, write it back as DD/MM/YYYY. Otherwise leave the cell alone.</li>
+<li>Save a new CSV with the same number of rows.</li>
+<li>Keep a short before-and-after sample next to the README.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>normalise.py</code> holds the date patterns and the cell converter. It does not read a file.</li>
+<li><code>cli.py</code> is the command-line entry. It takes the input path, an optional column list, and the output path.</li>
+<li><code>app.py</code> is a tiny local page: upload a CSV, download the cleaned one. Same function as the CLI.</li>
+<li><code>README.md</code> covers setup on Windows and macOS and one example command.</li>
+<li><code>samples/before.csv</code> and <code>samples/after.csv</code> show D/M/YY and YYYY-MM-DD turned into DD/MM/YYYY, with names and amounts unchanged.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>One function decides if a cell is a date. The CLI and the upload page both call that function, so the rules live in a single place. Pandas reads and writes the table. A cell that matches none of the patterns is returned unchanged, which is what keeps amounts, ids, and notes intact. The output file is a new path. The input file is not overwritten. This page is only the shape of that tool. It does not assume a reporting system is already wired up.</p>
+
+<h2>Core step</h2>
+<pre>from datetime import datetime
+
+FORMATS = (
+    "%Y-%m-%d",
+    "%d/%m/%Y",
+    "%d/%m/%y",
+    "%d-%m-%Y",
+    "%d-%m-%y",
+    "%Y/%m/%d",
+)
+
+def normalise_cell(value):
+    """Return DD/MM/YYYY when the cell is a known date, else the original value."""
+    if value is None:
+        return value
+    text = str(value).strip()
+    if not text or text.lower() == "nan":
+        return value
+    for fmt in FORMATS:
+        try:
+            parsed = datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+        return parsed.strftime("%d/%m/%Y")
+    return value
+
+def normalise_frame(frame, columns=None):
+    """Copy the table. Convert flagged columns, or every column when columns is None."""
+    out = frame.copy()
+    targets = list(columns) if columns else list(out.columns)
+    for name in targets:
+        out[name] = out[name].map(normalise_cell)
+    if len(out) != len(frame):
+        raise RuntimeError("row count changed")
+    return out</pre>
+
+<h2>Questions to settle first</h2>
+<ol>
+<li>Should every column be scanned, or only a list of date columns you name?</li>
+<li>For a two-digit year such as 25 in D/M/YY, is 2025 the right century?</li>
+<li>If a cell looks like a date but is impossible, such as 31/02/2024, should it stay unchanged or be reported?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
