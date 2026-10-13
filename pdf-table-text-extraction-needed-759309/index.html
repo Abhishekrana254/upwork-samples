@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF table text dump</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>PDF table text dump</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>A set of PDFs holds well-formed tables. Every page uses the same columns, so finding the columns should be simple. The needed output is the raw text only: clean plain-text files that keep line breaks, with no Excel and no CSV. Each row should stay intact and in the original order. Because the layout does not change, the dump should be accurate enough to edit later without a manual cleanup pass. Python is fine, including Camelot, Tabula, or a small parser. A short note should explain the method so it can be rerun or adapted.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Open one PDF and confirm the columns sit in the same places on every page.</li>
+<li>Read each word with its horizontal and vertical position.</li>
+<li>Join words that share a horizontal band into one line, left to right.</li>
+<li>Write one .txt per PDF, in that row order.</li>
+<li>Check a few pages against the source, and leave a short method note.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>extract.py</code> reads a PDF into word positions. Camelot or Tabula can supply those positions when the grid is ruled. The function below is what keeps each row intact.</li>
+<li><code>rows.py</code> groups words into lines and writes plain text. It does not write CSV or Excel.</li>
+<li><code>out/</code> holds one .txt per source PDF, with the same base name.</li>
+<li><code>README.md</code> is the method note: the library, the band tolerance, and how to rerun the script.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The PDF is read as words with an x and a y, not as a spreadsheet. Words whose y values fall inside a small band are one visual row. Inside that band they are ordered by x, then joined with a pipe so the columns stay visible in a text file. A new band starts a new line, so a later row cannot merge into an earlier one. Pages are appended in order, and one .txt is written per PDF. The README records the band size so a later edit can loosen or tighten it. This is a sketch of that dump. It is not a claim that these PDFs have already been converted.</p>
+
+<h2>Keep each row on one line</h2>
+<pre>def table_text(words, y_tol=3.0):
+    groups = []
+    ordered = sorted(words, key=lambda word: (-word["y"], word["x"]))
+    for word in ordered:
+        if not groups or abs(groups[-1][0]["y"] - word["y"]) &gt; y_tol:
+            groups.append([word])
+        else:
+            groups[-1].append(word)
+    lines = []
+    for group in groups:
+        group.sort(key=lambda item: item["x"])
+        lines.append(" | ".join(item["text"] for item in group))
+    return "\n".join(lines)</pre>
+<p>Words for Name, Qty, and Price, then Bolt, 2, and 1.50, then Nut, 4, and 0.25, come out as three lines. Qty is one unit off the header line and 1.50 is one unit off the Bolt line. Both stay on their row because the band is 3. The first line is the header, because it sits higher on the page. The text is:</p>
+<pre>Name | Qty | Price
+Bolt | 2 | 1.50
+Nut | 4 | 0.25</pre>
+
+<h2>Settle these first</h2>
+<ol>
+<li>One .txt per PDF, or one consolidated file?</li>
+<li>Should columns be separated by a pipe, a tab, or spaces?</li>
+<li>Do any cells wrap onto a second visual line inside the same row?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
