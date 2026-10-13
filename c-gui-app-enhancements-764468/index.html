@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C++ desktop GUI audit</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>C++ desktop GUI audit</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>A desktop application already runs. The GUI and the logic behind it need a focused pass: leftover bugs, polish or small extensions to current features, and a more responsive interface on a modern Windows machine. The first step is to clone the repository, compile it locally, and audit where time is going. The update list is agreed before edits. The toolkit may be Qt, wxWidgets, or a native Windows framework. The hand-off is commented source, a short change log, build steps that work on a fresh Windows machine, and an executable that keeps the old behavior plus the agreed upgrades.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Clone the repo and produce a clean Windows build.</li>
+<li>Run the app and time the calls that sit on the UI thread.</li>
+<li>Agree a short update list from the slowest calls and the known bugs.</li>
+<li>Change only those spots, and move heavy work off the UI thread.</li>
+<li>Write the change log, the build steps, and ship the executable for an interim test.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>CMakeLists.txt</code> is the fresh-machine build for the Windows executable.</li>
+<li><code>src/audit.cpp</code> records how long a named UI call took and returns the ones over budget.</li>
+<li><code>src/main.cpp</code> stays the existing entry point. New work is called from here only after the list is agreed.</li>
+<li><code>CHANGELOG.md</code> says what changed and why, in the order the builds were tested.</li>
+<li><code>BUILD.md</code> is the Windows compile and run note for a clean machine.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The audit runs against the current binary before features change. Each timed call is a name plus microseconds. Calls under the frame budget stay off the list. Calls over the budget are sorted slowest first, and only the top few are proposed. After that list is agreed, heavy work moves off the UI thread and the screen still shows the same results. Qt, wxWidgets, or the native Windows toolkit is taken from the repo, not guessed. The change log and the build note travel with the executable. This is a sketch of that pass. It is not a claim that a particular application has already been updated.</p>
+
+<h2>Rank the slow calls</h2>
+<pre>#include &lt;algorithm&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+
+struct Sample {
+    std::string name;
+    long long us;
+};
+
+std::vector&lt;Sample&gt; slow_calls(std::vector&lt;Sample&gt; rows, long long budget_us, std::size_t limit) {
+    std::vector&lt;Sample&gt; slow;
+    for (const Sample&amp; row : rows) {
+        if (row.us &gt; budget_us) {
+            slow.push_back(row);
+        }
+    }
+    std::sort(slow.begin(), slow.end(), [](const Sample&amp; a, const Sample&amp; b) {
+        if (a.us != b.us) {
+            return a.us &gt; b.us;
+        }
+        return a.name &lt; b.name;
+    });
+    if (slow.size() &gt; limit) {
+        slow.resize(limit);
+    }
+    return slow;
+}</pre>
+<p>On four samples with a 16 ms budget (16000 microseconds) and a limit of 2, the result is paint_table at 42000 us, then reflow_panel at 18000 us. load_file at 8000 us and status_bar at 400 us stay off the list. Two calls with the same time are ordered by name. This compiled and ran with g++ in C++17.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Is the GUI Qt, wxWidgets, or a native Windows framework?</li>
+<li>Which Windows version and which compiler should a fresh machine use?</li>
+<li>Which screen feels slow, or which bug should be first on the agreed list?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
