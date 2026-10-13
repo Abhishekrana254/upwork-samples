@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BitQube and QUBX wallet</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>BitQube and QUBX wallet</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>People need one open-source, non-custodial wallet for the native BitQube coin (BTQ) and for the QUBX chain (chain ID 6004). They should send, receive, and see balances and history, and import a token by pasting its contract address so the wallet can read the name, symbol, decimals, and balance. Third-party tokens need a warning when they are unverified or look suspicious. Creators also need a permanent public directory: submit the contract, a 256 by 256 PNG logo, the name, symbol, description, website, and social links. A reviewer approves a row before it is public. The listing stays up without a recurring fee, and can still be removed for security, legal, or fraud reasons. The creator can later update the logo and the project text. Seed phrases stay on the user's device. An admin screen approves submissions, edits metadata, flags suspicious tokens, and marks deprecated assets.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Confirm the node API for native BTQ and the RPC for QUBX chain ID 6004 before any send path is written.</li>
+<li>Generate the seed on the device, encrypt it locally, and show a backup. The listing server never receives it.</li>
+<li>Show native balances and history, then send and receive on each chain that the RPC check passed.</li>
+<li>Import a token by contract address and fill name, symbol, decimals, and balance from the chain.</li>
+<li>Warn when that address is missing from the directory or has been flagged.</li>
+<li>Let a creator submit the contract, the 256 by 256 PNG, and the links, and let an admin approve, update, flag, or deprecate the row.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>wallet/rpc.ts</code> builds the <code>eth_call</code> body for name, symbol, decimals, and balanceOf. QUBX uses the endpoint for chain ID 6004. BTQ uses its own endpoint once that API is confirmed.</li>
+<li><code>wallet/keys.ts</code> generates, encrypts, and recovers the seed on the device. Nothing in this file posts the seed.</li>
+<li><code>wallet/importToken.ts</code> turns the call results into a token row and a status of listed, unverified, or flagged.</li>
+<li><code>portal/app.py</code> accepts the contract address, the 256 by 256 PNG, and the project links.</li>
+<li><code>portal/review.py</code> approves a row, updates logo and text, flags a token, or marks it deprecated.</li>
+<li><code>portal/schema.sql</code> stores the listing and each review action. There is no fee column and no seed column.</li>
+<li><code>README.md</code> covers how to run the wallet and the portal, and states that seeds are not stored on the server.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The wallet and the directory are separate. Keys live only in the browser. Send, receive, and history talk to each chain's node. Token import uses the standard contract calls when the chain speaks that RPC, which is the shape to prove on QUBX chain ID 6004, and to check separately for native BTQ. The Python portal stores submissions and review history. Approved rows are the public directory the wallet reads. A missing or flagged address still displays, with a warning. No chain change is assumed until both protocols have been read. A paid RPC host and an external audit would be extra services, not part of the wallet process.</p>
+
+<h2>Importing a token</h2>
+<pre>QUBX_CHAIN_ID = 6004
+
+SELECTORS = {
+    "name": "0x06fdde03",
+    "symbol": "0x95d89b41",
+    "decimals": "0x313ce567",
+}
+
+def eth_call(contract, data):
+    return {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_call",
+        "params": [{"to": contract, "data": data}, "latest"],
+    }
+
+def decode_uint(data):
+    raw = data[2:] if data.startswith("0x") else data
+    return int(raw or "0", 16)
+
+def decode_text(data):
+    raw = data[2:] if data.startswith("0x") else data
+    if len(raw) == 64:
+        return bytes.fromhex(raw).rstrip(b"\x00").decode()
+    offset = int(raw[:64], 16) * 2
+    length = int(raw[offset:offset + 64], 16)
+    start = offset + 64
+    return bytes.fromhex(raw[start:start + length * 2]).decode()
+
+def balance_of_data(holder):
+    addr = holder.lower().replace("0x", "")
+    return "0x70a08231" + addr.rjust(64, "0")
+
+def token_view(address, name_hex, symbol_hex, decimals_hex, directory, flagged):
+    key = address.lower()
+    if key in flagged:
+        status = "flagged"
+    elif key in directory:
+        status = "listed"
+    else:
+        status = "unverified"
+    return {
+        "address": key,
+        "name": decode_text(name_hex),
+        "symbol": decode_text(symbol_hex),
+        "decimals": decode_uint(decimals_hex),
+        "status": status,
+    }</pre>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Does native BitQube expose the same contract calls as QUBX chain ID 6004, or does BTQ need a different node API?</li>
+<li>Is the first delivery a web wallet, or a mobile app in the same milestone?</li>
+<li>Who may approve a listing, and where should the 256 by 256 PNG files be stored?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
