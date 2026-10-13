@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local Chinese model setup</title>
+<style>
+body{font-family:Georgia,serif;max-width:760px;margin:40px auto;padding:0 20px;color:#1c1c1c;line-height:1.55}
+h1{font-size:28px;margin-bottom:4px}
+h2{font-size:20px;margin-top:28px}
+.sub{color:#555;margin-top:0}
+ol,ul{padding-left:22px}
+li{margin:6px 0}
+code{font-family:ui-monospace,monospace;font-size:0.95em}
+pre{background:#111;color:#eee;padding:14px;overflow:auto;font-size:13px;line-height:1.45}
+.note{color:#444;font-size:15px}
+</style>
+</head>
+<body>
+<h1>Local Chinese model setup</h1>
+<p class="sub">Abhishek Rana. A sketch of how the build would go.</p>
+
+<h2>The problem</h2>
+<p>An open-source Chinese model, most likely Qwen, Deepseek, or Kimi, needs to run under one roof for document analysis, document preparation, and workflow management. The first choice is hardware: buy one GPU and keep it, rent a cloud GPU, or start with a smaller card and upgrade later. That choice needs a plain comparison of cost, VRAM, and expected speed, with buy and rent links and a simple break-even. After the choice, the model has to be installed, the weights loaded, and the runtime checked on the local network. Then come everyday steps: prompting, a fine-tune on the owner's own documents, retrieval over PDF and Word files, and troubleshooting that can be repeated later. The check is latency, tokens per second, and VRAM, plus one walkthrough call and a follow-up.</p>
+
+<h2>Flow</h2>
+<ol>
+<li>Write the hardware note: one card, a cloud rental, or a starter card, with VRAM and a break-even from real prices.</li>
+<li>Install the runtime on the agreed machine and load the chosen weights.</li>
+<li>Measure latency, tokens per second, and VRAM on a fixed prompt.</li>
+<li>Chunk PDF and Word files on that machine and retrieve them into the prompt.</li>
+<li>Show prompting, a small fine-tune on those files, and the troubleshooting list on a call, then a follow-up.</li>
+</ol>
+
+<h2>Files</h2>
+<ul>
+<li><code>hardware.py</code> estimates weight VRAM plus KV cache, and turns a buy price and an hourly rent into months to break even.</li>
+<li><code>bench.py</code> records latency, tokens per second, and VRAM from one generation.</li>
+<li><code>serve.py</code> is a small local API so the model is reachable on the house network.</li>
+<li><code>ingest.py</code> reads PDF and Word files and splits them into chunks. The files stay on that machine.</li>
+<li><code>rag.py</code> picks the relevant chunks and builds the prompt.</li>
+<li><code>README.md</code> lists the install commands, the benchmark to re-run, and the troubleshooting steps.</li>
+</ul>
+
+<h2>Architecture</h2>
+<p>The hardware note comes first, because the model size has to fit the card. A local runtime such as llama.cpp loads Qwen or Deepseek weights on the chosen machine. A short Python service on the LAN accepts a prompt and returns the completion. PDF and Word text is split locally and only the matching chunks go into the prompt. The benchmark writes latency, tokens per second, and VRAM for that same setup. A fine-tune on the owner's documents waits until that baseline is measured and the card has room. Prices in the report come from current buy and rent links. The functions below only do the arithmetic.</p>
+
+<h2>VRAM and a benchmark row</h2>
+<pre>def weight_gb(params_b, bits):
+    return params_b * (bits / 8.0)
+
+def kv_cache_gb(layers, kv_heads, head_dim, context, bytes_per=2):
+    nbytes = 2 * layers * kv_heads * head_dim * context * bytes_per
+    return nbytes / (1024 ** 3)
+
+def vram_need_gb(params_b, bits, layers, kv_heads, head_dim, context, reserve_gb=1.5):
+    need = (
+        weight_gb(params_b, bits)
+        + kv_cache_gb(layers, kv_heads, head_dim, context)
+        + reserve_gb
+    )
+    return round(need, 2)
+
+def months_to_own(buy_usd, rent_per_hour, hours_per_month):
+    monthly = rent_per_hour * hours_per_month
+    if monthly &lt;= 0:
+        raise ValueError("monthly rent must be positive")
+    return round(buy_usd / monthly, 1)
+
+def bench(output_tokens, seconds, vram_mib):
+    if seconds &lt;= 0:
+        raise ValueError("seconds must be positive")
+    return {
+        "latency_s": round(seconds, 3),
+        "tok_s": round(output_tokens / seconds, 2),
+        "vram_gb": round(vram_mib / 1024, 2),
+    }</pre>
+<p>For a Qwen2.5-7B size model (7.6B, 4-bit, 28 layers, 4 KV heads, head dim 128, 8192 context, 1.5 GB reserve) <code>vram_need_gb</code> returns 5.74, which fits an 8 GB card. The same sum for a 14.7B model with 48 layers and 8 KV heads is over 8 GB. <code>months_to_own(1200, 1.0, 40)</code> returns 30.0. <code>bench(128, 8.0, 6144)</code> returns 8.0 seconds, 16 tokens per second, and 6.0 GB. Those last two calls use sample inputs to check the math, not a live card.</p>
+
+<h2>Settle these first</h2>
+<ol>
+<li>Are the documents Chinese, English, or mixed, and about how many pages is a normal file?</li>
+<li>May the first benchmark run on a cloud GPU you can turn off, or must the weights stay on a machine in the house?</li>
+<li>What is the quality floor: a 7B model, a 14B model, or larger?</li>
+</ol>
+<p class="note">This page is a sketch of the build. It is not a claim that the client's product already exists.</p>
+</body>
+</html>
